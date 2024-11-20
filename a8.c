@@ -133,7 +133,7 @@ void relaxEdge(struct Graph* graph, struct heapNode* arr, int u, struct graphNod
 }
 
 // Dijkstra's algorithm implementation (from lecture slides), modified for periodic weights
-void dijkstra(struct Graph* graph, int source, int traget){
+void dijkstra(struct Graph* graph, int source, int target){
     // Initialize the heap (priority queue) with graph vertices
     struct heapNode* arr = (struct heapNode*)malloc(graph->vertexCount * sizeof(struct heapNode));
     int n = graph->vertexCount;
@@ -167,9 +167,67 @@ void dijkstra(struct Graph* graph, int source, int traget){
         }
     }
 
-    // Print shortest path and the total weight
+    // Print shortest path in the specified format
+    if(arr[graph->heapIndex[target]].distance == INT_MAX){
+        printf("No path exists");
+    }
+    else{
+        int path[graph->vertexCount];
+        int count = 0;
+        int current = target;
+        while(current != -1){
+            path[count++] = current;
+            current = arr[graph->heapIndex[current]].predecessor;
+        }
+        for(int i = count; i >= 0; i--){
+            printf("%d%s", path[i], (i > 0 ? " " : "\n"));
+        }
+
+        free(arr);
+    }
+}
+
+// Parse the input file to create a graph
+struct Graph* parseInput(const char* filename){
+    FILE* file = fopen(filename, "r");
+    if(!file){
+        perror("Error opening file");
+        exit(1);
+    }
+
+    int vertexCount;
+    int periodLength;
+    fscanf(file, "%d %d", &vertexCount, &periodLength);
+    struct Graph* graph = createGraph(vertexCount, periodLength);
+
+    int from;
+    int to;
+    while(fscanf(file, "%d %d", &from, &to) != EOF){
+        int* weights = (int*)malloc(periodLength * sizeof(int));
+        for(int i = 0; i < periodLength; i++){
+            fscanf(file, "%d", &weights[i]);
+        }
+        addEdge(graph, from, to, weights);
+    }
+
+    fclose(file);
+    return graph;
 }
 
 int main(int argc, char *argv[]){
+    if(argc != 2){
+        fprintf(stderr, "Usage: %s <graph_file>\n", argv[0]);
+        return 1;
+    }
 
+    struct Graph* graph = parseInput(argv[1]);
+
+    int source;
+    int target;
+    while(scanf("%d %d", &source, &target) == 2){
+        dijkstra(graph, source, target);
+    }
+
+    freeGraph(graph);
+    return 0;
 }
