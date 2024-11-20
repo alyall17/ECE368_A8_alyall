@@ -15,7 +15,7 @@ a8: $(OBJS)
 	$(GCC) -c $*.c
 
 run: a8
-	./a8 points.txt
+	./a8 graph.txt
 
 clean: # remove all machine generated files
 	rm -f a8 *.o output* *~

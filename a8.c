@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <stdbool.h>
 
 // Graph Node in Adjacency List
 struct graphNode{
@@ -30,7 +31,7 @@ struct Graph* createGraph(int vertexCount, int periodLength){
     struct Graph* graph = (struct Graph*)malloc(sizeof(struct Graph));
     graph->vertexCount = vertexCount;
     graph->periodLength = periodLength;
-    graph->adj = (struct gnode**)calloc(vertexCount, sizeof(struct gnode*));
+    graph->adj = (struct graphNode**)calloc(vertexCount, sizeof(struct graphNode*));
     graph->heapIndex = (int*)malloc(vertexCount * sizeof(int));
     return graph;
 }
@@ -172,7 +173,7 @@ void dijkstra(struct Graph* graph, int source, int target){
         printf("No path exists");
     }
     else{
-        int path[graph->vertexCount];
+        int* path = (int*)malloc(graph->vertexCount * sizeof(int));
         int count = 0;
         int current = target;
         while(current != -1){
