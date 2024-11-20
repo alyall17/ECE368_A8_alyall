@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
-#include <stdbool.h>
 
 // Graph Node in Adjacency List
 struct graphNode{
@@ -84,7 +83,7 @@ void downwardHeapify(struct heapNode* arr, int n, int i, int* heapIndex){
     }
 
     // Check if right child exists and is smaller than current node
-    if(right < n && (arr[right].distance < arr[smallest].distance)){
+    if(right < n && arr[right].distance < arr[smallest].distance){
         smallest = right;
     }
 
@@ -98,7 +97,7 @@ void downwardHeapify(struct heapNode* arr, int n, int i, int* heapIndex){
 // Restore heap by shifting up (upward heapify)
 void upwardHeapify(struct heapNode* arr, int i, int* heapIndex){
     // Continue shifting up until property restored
-    while(i > 0 && (arr[i].distance < arr[(i - 1) / 2].distance)){
+    while(i > 0 && arr[i].distance < arr[(i - 1) / 2].distance){
         swap(arr, i, ((i - 1) / 2), heapIndex); // Swap with parent
         i = (i - 1) / 2; // Move up to parent's index
     }
@@ -110,6 +109,7 @@ void dequeue(struct heapNode* arr, int n, int* heapIndex){
 
     // Swap root (minimum) with last element in the heap
     swap(arr, 0, n, heapIndex);
+    n--;
 
     // Restore heap property by shifting down
     downwardHeapify(arr, n, 0, heapIndex);
@@ -121,7 +121,7 @@ void relaxEdge(struct Graph* graph, struct heapNode* arr, int u, struct graphNod
     int effectiveWeight = v->weights[step % graph->periodLength];
 
     // Check if the distance through edge improves the shortest path to v->label
-    /*if((graph->heapIndex[v->label] < n) && (arr[graph->heapIndex[v->label]].distance > (arr[graph->heapIndex[u]].distance + effectiveWeight))){
+    if((graph->heapIndex[v->label] < n) && (arr[graph->heapIndex[v->label]].distance > (arr[graph->heapIndex[u]].distance + effectiveWeight))){
         
         // Update the distance and predecessor for the target vertex
         arr[graph->heapIndex[v->label]].distance = arr[graph->heapIndex[u]].distance + effectiveWeight;
@@ -130,16 +130,16 @@ void relaxEdge(struct Graph* graph, struct heapNode* arr, int u, struct graphNod
 
         // Restore the heap property for the updated vertex
         upwardHeapify(arr, graph->heapIndex[v->label], graph->heapIndex);
-    }*/
+    }
 
-   int vIndex = graph->heapIndex[v->label];
-    if (vIndex < n && arr[vIndex].distance > arr[graph->heapIndex[u]].distance + effectiveWeight) {
+   //int vIndex = graph->heapIndex[v->label];
+    /*if (vIndex < n && arr[vIndex].distance > arr[graph->heapIndex[u]].distance + effectiveWeight) {
         arr[vIndex].distance = arr[graph->heapIndex[u]].distance + effectiveWeight;
         arr[vIndex].predecessor = u;
         arr[vIndex].step = step + 1;
 
         upwardHeapify(arr, vIndex, graph->heapIndex);
-    }
+    }*/
 }
 
 // Dijkstra's algorithm implementation (from lecture slides), modified for periodic weights
@@ -159,12 +159,12 @@ void dijkstra(struct Graph* graph, int source, int target){
 
     // Set source vertex's distance to 0
     arr[0].distance = 0;
-    //arr[0].label = source;
+    arr[0].label = source;
     graph->heapIndex[source] = 0;
 
     // Main Dijkstra's loop
     while(n != 0){
-        dequeue(arr, n - 1, graph->heapIndex); // Extract minimum distance node
+        dequeue(arr, n, graph->heapIndex); // Extract minimum distance node
         n--;
         int u = arr[n].label; // Current node
         int step = arr[n].step; // Current step for calculating periodic weights
@@ -189,12 +189,12 @@ void dijkstra(struct Graph* graph, int source, int target){
             path[count++] = current;
             current = arr[graph->heapIndex[current]].predecessor;
         }
-        for(int i = count - 1; i >= 0; i--){
+        for(int i = count; i >= 0; i--){
             printf("%d%s", path[i], (i > 0 ? " " : "\n"));
         }
-
-        free(arr);
+        free(path);
     }
+    free(arr);
 }
 
 // Parse the input file to create a graph
