@@ -121,7 +121,7 @@ void relaxEdge(struct Graph* graph, struct heapNode* arr, int u, struct graphNod
     int effectiveWeight = v->weights[step % graph->periodLength];
 
     // Check if the distance through edge improves the shortest path to v->label
-    if((graph->heapIndex[v->label] < n) && (arr[graph->heapIndex[v->label]].distance > (arr[graph->heapIndex[u]].distance + effectiveWeight))){
+    /*if((graph->heapIndex[v->label] < n) && (arr[graph->heapIndex[v->label]].distance > (arr[graph->heapIndex[u]].distance + effectiveWeight))){
         
         // Update the distance and predecessor for the target vertex
         arr[graph->heapIndex[v->label]].distance = arr[graph->heapIndex[u]].distance + effectiveWeight;
@@ -130,6 +130,15 @@ void relaxEdge(struct Graph* graph, struct heapNode* arr, int u, struct graphNod
 
         // Restore the heap property for the updated vertex
         upwardHeapify(arr, graph->heapIndex[v->label], graph->heapIndex);
+    }*/
+
+   int vIndex = graph->heapIndex[v->label];
+    if (vIndex < n && arr[vIndex].distance > arr[graph->heapIndex[u]].distance + effectiveWeight) {
+        arr[vIndex].distance = arr[graph->heapIndex[u]].distance + effectiveWeight;
+        arr[vIndex].predecessor = u;
+        arr[vIndex].step = step + 1;
+
+        upwardHeapify(arr, vIndex, graph->heapIndex);
     }
 }
 
@@ -150,7 +159,7 @@ void dijkstra(struct Graph* graph, int source, int target){
 
     // Set source vertex's distance to 0
     arr[0].distance = 0;
-    arr[0].label = source;
+    //arr[0].label = source;
     graph->heapIndex[source] = 0;
 
     // Main Dijkstra's loop
@@ -170,7 +179,7 @@ void dijkstra(struct Graph* graph, int source, int target){
 
     // Print shortest path in the specified format
     if(arr[graph->heapIndex[target]].distance == INT_MAX){
-        printf("No path exists");
+        printf("No path exists\n");
     }
     else{
         int* path = (int*)malloc(graph->vertexCount * sizeof(int));
@@ -180,7 +189,7 @@ void dijkstra(struct Graph* graph, int source, int target){
             path[count++] = current;
             current = arr[graph->heapIndex[current]].predecessor;
         }
-        for(int i = count; i >= 0; i--){
+        for(int i = count - 1; i >= 0; i--){
             printf("%d%s", path[i], (i > 0 ? " " : "\n"));
         }
 
