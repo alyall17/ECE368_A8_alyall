@@ -74,7 +74,7 @@ void dijkstra(struct Graph* graph, int source, int target) {
 
     // If the distances for the source have already been calculated, reuse them
     if (graph->isProcessed[source]) {
-        printf("Using cached result for source %d\n", source);
+        //printf("Using cached result for source %d\n", source);
         // Find the shortest distance to the target across all steps
         int minDistance = INT_MAX;
         for (int i = 0; i < P; i++) {
