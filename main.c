@@ -113,6 +113,7 @@ void dijkstra(struct Graph* graph, int source, int target) {
             printf("\n");
 
             //printf("Shortest distance: %d\n", minDistance);
+            free(path);
         }
         return;
     }
@@ -214,6 +215,7 @@ void dijkstra(struct Graph* graph, int source, int target) {
         printf("\n");
 
         //printf("Shortest distance: %d\n", minDistance);
+        free(path);
     }
 
     // Free memory
