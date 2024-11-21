@@ -170,9 +170,14 @@ int main(int argc, char* argv[]) {
     // Read queries
     char buffer[256];
     while (fgets(buffer, sizeof(buffer), stdin)) {
-        int source, target;
-        sscanf(buffer, "%d %d", &source, &target);
-        dijkstra(graph, source, target);
+        int source;
+        int target;
+        if(sscanf(buffer, "%d %d", &source, &target) == 2){
+            dijkstra(graph, source, target);
+        }
+        else{
+            break;
+        }
     }
 
     freeGraph(graph);
