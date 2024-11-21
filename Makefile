@@ -3,7 +3,7 @@ ERROR = -Wvla -Werror
 GCC = gcc -std=c99 -g $(WARNING) $(ERROR) 
 #GCC = gcc -g $(WARNING) $(ERROR) 
 
-SRCS = main.c
+SRCS = a8.c
 OBJS = $(SRCS:%.c=%.o)
 
 # diff -w means do not care about space
