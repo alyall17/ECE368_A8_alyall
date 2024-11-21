@@ -103,6 +103,62 @@ void update(struct treeNode* arr, int i, int* heapIndex){
     heapIndex[arr[j].label] = j;
 }
 
+// Update the shortest path and propagate steps backward
+/*void updateSteps(struct treeNode* arr, int* heapIndex, int current, int newStep) {
+    while (current != -1) {
+        arr[heapIndex[current]].step = newStep;
+        newStep--;  // Step decrements as we move backward in the path
+        current = arr[heapIndex[current]].predecessor;
+    }
+}*/
+
+void recalcSteps(struct treeNode* arr, int* heapIndex, struct Graph* graph, int source, int current) {
+    int step = 0; // Start at step 0 for the source
+    int node = current;
+
+    // Temporarily store the nodes in the updated path
+    int* pathNodes = (int*)malloc(sizeof(int) * heapIndex[source]);
+    int pathCount = 0;
+
+    // Trace back to the source to construct the full path
+    while (node != -1) {
+        pathNodes[pathCount++] = node;
+        node = arr[heapIndex[node]].predecessor;
+    }
+
+    // Assign steps to each node in the path
+    int cumulativeDistance = 0;
+    for (int i = pathCount - 1; i >= 0; i--) {
+        int currentNode = pathNodes[i];
+        arr[heapIndex[pathNodes[i]]].step = step++;
+
+        if (i < pathCount - 1) {
+            // Get the predecessor and calculate distance using the periodic weight
+            int predecessor = pathNodes[i + 1];
+            int edgeWeightIndex = arr[heapIndex[currentNode]].step % graph->period;
+
+            // Find the edge weight from the predecessor to the current node
+            struct graphNode* edge = graph->graph[predecessor];
+            while (edge != NULL && edge->label != currentNode) {
+                edge = edge->next;
+            }
+
+            if (edge != NULL) {
+                cumulativeDistance += edge->weight[edgeWeightIndex];
+            } else {
+                fprintf(stderr, "Error: Edge from %d to %d not found\n", predecessor, currentNode);
+                free(pathNodes);
+                return;
+            }
+        }
+
+        // Update the node's distance
+        arr[heapIndex[currentNode]].distance = cumulativeDistance;
+    }
+
+    free(pathNodes);
+}
+
 // Dijkstra's algorithm implementation (from lecture slides), modified for periodic weights
 void dijkstra(struct Graph* graph, int source, int target){
     int V = graph->vertices;
@@ -137,7 +193,11 @@ void dijkstra(struct Graph* graph, int source, int target){
             if(graph->heapIndex[v->label] < n && arr[graph->heapIndex[v->label]].distance > arr[n].distance + v->weight[nextWeight]){
                 arr[graph->heapIndex[v->label]].distance = arr[n].distance + v->weight[nextWeight];
                 arr[graph->heapIndex[v->label]].predecessor = u;
-                arr[graph->heapIndex[v->label]].step = nextStep; // Update step in graph traversal
+                //arr[graph->heapIndex[v->label]].step = nextStep; // Update step in graph traversal
+                //updateSteps(arr, graph->heapIndex, v->label, arr[n].step + 1);
+
+                // Recalculate steps for all nodes in the updated path
+                recalcSteps(arr, graph->heapIndex, graph, source, v->label);
                 update(arr, graph->heapIndex[v->label], graph->heapIndex);
             }
             v = v->next;
