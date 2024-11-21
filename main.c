@@ -68,6 +68,15 @@ void dijkstra(struct Graph* graph, int source, int target) {
         }
     }
 
+    // Predecessor table to track the path
+    int** predecessors = (int**)malloc(V * sizeof(int*));
+    for (int i = 0; i < V; i++) {
+        predecessors[i] = (int*)malloc(P * sizeof(int));
+        for (int j = 0; j < P; j++) {
+            predecessors[i][j] = -1; // -1 means no predecessor
+        }
+    }
+
     // Enqueue source
     distances[source][0] = 0;
     pq[pqSize++] = (struct PQNode){source, 0, 0};
@@ -91,6 +100,7 @@ void dijkstra(struct Graph* graph, int source, int target) {
 
             if (newDistance < distances[v][nextStep]) {
                 distances[v][nextStep] = newDistance;
+                predecessors[v][nextStep] = u; // Track the predecessor node
                 pq[pqSize++] = (struct PQNode){v, nextStep, newDistance};
                 qsort(pq, pqSize, sizeof(struct PQNode), compare);
             }
@@ -101,9 +111,11 @@ void dijkstra(struct Graph* graph, int source, int target) {
 
     // Find the shortest distance to the target across all steps
     int minDistance = INT_MAX;
+    int finalStep = -1;
     for (int i = 0; i < P; i++) {
         if (distances[target][i] < minDistance) {
             minDistance = distances[target][i];
+            finalStep = i;
         }
     }
 
@@ -111,14 +123,38 @@ void dijkstra(struct Graph* graph, int source, int target) {
     if (minDistance == INT_MAX) {
         printf("No path found\n");
     } else {
-        printf("Shortest distance: %d\n", minDistance);
+        // Reconstruct and print the shortest path
+        int* path = (int*)malloc(V * P * sizeof(int));
+        int pathLength = 0;
+        int currentNode = target;
+        int currentStep = finalStep;
+
+        while (currentNode != source || currentStep != 0) {
+            path[pathLength++] = currentNode;
+            int prevNode = predecessors[currentNode][currentStep];
+            currentStep = (currentStep - 1 + P) % P; // Move to previous step
+            currentNode = prevNode;
+        }
+        path[pathLength++] = source;
+
+        // Print path in correct order
+        //printf("Shortest path: ");
+        for (int i = pathLength - 1; i >= 0; i--) {
+            printf("%d ", path[i]);
+        }
+        printf("\n");
+
+        //printf("Shortest distance: %d\n", minDistance);
+        free(path);
     }
 
     // Free memory
     for (int i = 0; i < V; i++) {
         free(distances[i]);
+        free(predecessors[i]);
     }
     free(distances);
+    free(predecessors);
     free(pq);
 }
 
