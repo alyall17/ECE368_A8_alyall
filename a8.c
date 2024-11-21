@@ -157,7 +157,7 @@ void dijkstra(struct Graph* graph, int source, int target){
         printf("No path found\n");
     }
     else{
-        for(int i = count; i >= 0; i--){
+        for(int i = count - 1; i >= 0; i--){
             printf("%d ", path[i]);
         }
         printf("\n");
