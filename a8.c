@@ -1,36 +1,36 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
-#include <stdbool.h>
 
-// Priority Queue Node
+// Priority queue node
 struct PQNode {
-    int node;
-    int step;
-    int distance;
+    int node;     // Vertex ID
+    int step;     // Time step (mod P)
+    int distance; // Current distance
 };
 
-// Comparator for Priority Queue
+// Edge structure
+struct Edge {
+    int to;               // Destination node
+    int* weights;         // Array of weights (size P)
+    struct Edge* next;    // Pointer to the next edge
+};
+
+// Graph structure
+struct Graph {
+    int vertices;         // Number of vertices
+    int period;           // Period P
+    struct Edge** adjList; // Adjacency list
+};
+
+// Comparator for priority queue
 int compare(const void* a, const void* b) {
     struct PQNode* n1 = (struct PQNode*)a;
     struct PQNode* n2 = (struct PQNode*)b;
     return n1->distance - n2->distance;
 }
 
-// Graph Representation
-struct Edge {
-    int to;
-    int* weights; // Periodic weights
-    struct Edge* next;
-};
-
-struct Graph {
-    int vertices;
-    int period;
-    struct Edge** adjList; // Original adjacency list
-};
-
-// Create a new graph
+// Create a graph
 struct Graph* createGraph(int vertices, int period) {
     struct Graph* graph = (struct Graph*)malloc(sizeof(struct Graph));
     graph->vertices = vertices;
@@ -42,7 +42,7 @@ struct Graph* createGraph(int vertices, int period) {
     return graph;
 }
 
-// Add edge to the graph
+// Add an edge to the graph
 void addEdge(struct Graph* graph, int from, int to, int* weights) {
     struct Edge* edge = (struct Edge*)malloc(sizeof(struct Edge));
     edge->to = to;
@@ -51,101 +51,7 @@ void addEdge(struct Graph* graph, int from, int to, int* weights) {
     graph->adjList[from] = edge;
 }
 
-// Dijkstra's Algorithm
-int dijkstra(struct Graph* graph, int source, int target, int* path, int* pathLength) {
-    int V = graph->vertices;
-    int P = graph->period;
-
-    // Priority queue
-    struct PQNode* pq = (struct PQNode*)malloc(V * P * sizeof(struct PQNode));
-    int pqSize = 0;
-
-    // Distance table
-    int** distances = (int**)malloc(V * sizeof(int*));
-    for (int i = 0; i < V; i++) {
-        distances[i] = (int*)malloc(P * sizeof(int));
-        for (int j = 0; j < P; j++) {
-            distances[i][j] = INT_MAX;
-        }
-    }
-
-    // Predecessor table to track the path
-    int** predecessors = (int**)malloc(V * sizeof(int*));
-    for (int i = 0; i < V; i++) {
-        predecessors[i] = (int*)malloc(P * sizeof(int));
-        for (int j = 0; j < P; j++) {
-            predecessors[i][j] = -1;
-        }
-    }
-
-    // Enqueue source
-    distances[source][0] = 0;
-    pq[pqSize++] = (struct PQNode){source, 0, 0};
-
-    while (pqSize > 0) {
-        struct PQNode current = pq[0];
-        pq[0] = pq[--pqSize];
-        qsort(pq, pqSize, sizeof(struct PQNode), compare);
-
-        int u = current.node;
-        int step = current.step;
-
-        struct Edge* edge = graph->adjList[u];
-        while (edge) {
-            int v = edge->to;
-            int nextStep = (step + 1) % P;
-            int weight = edge->weights[step];
-            int newDistance = distances[u][step] + weight;
-
-            if (newDistance < distances[v][nextStep]) {
-                distances[v][nextStep] = newDistance;
-                predecessors[v][nextStep] = u;
-                pq[pqSize++] = (struct PQNode){v, nextStep, newDistance};
-                qsort(pq, pqSize, sizeof(struct PQNode), compare);
-            }
-
-            edge = edge->next;
-        }
-    }
-
-    // Find the shortest distance to the target across all steps
-    int minDistance = INT_MAX;
-    int finalStep = -1;
-    for (int i = 0; i < P; i++) {
-        if (distances[target][i] < minDistance) {
-            minDistance = distances[target][i];
-            finalStep = i;
-        }
-    }
-
-    // Reconstruct the path
-    if (minDistance != INT_MAX) {
-        int currentNode = target;
-        int currentStep = finalStep;
-        *pathLength = 0;
-
-        while (currentNode != source || currentStep != 0) {
-            path[(*pathLength)++] = currentNode;
-            int prevNode = predecessors[currentNode][currentStep];
-            currentStep = (currentStep - 1 + P) % P;
-            currentNode = prevNode;
-        }
-        path[(*pathLength)++] = source;
-    }
-
-    // Free memory
-    for (int i = 0; i < V; i++) {
-        free(distances[i]);
-        free(predecessors[i]);
-    }
-    free(distances);
-    free(predecessors);
-    free(pq);
-
-    return minDistance;
-}
-
-// Free the graph
+// Free graph memory
 void freeGraph(struct Graph* graph) {
     for (int i = 0; i < graph->vertices; i++) {
         struct Edge* edge = graph->adjList[i];
@@ -160,6 +66,94 @@ void freeGraph(struct Graph* graph) {
     free(graph);
 }
 
+// Dijkstra's algorithm
+void dijkstra(struct Graph* graph, int source, int** dist, int** pred) {
+    int V = graph->vertices;
+    int P = graph->period;
+
+    // Initialize distances and predecessors
+    for (int i = 0; i < V; i++) {
+        for (int j = 0; j < P; j++) {
+            dist[i][j] = INT_MAX;
+            pred[i][j] = -1;
+        }
+    }
+
+    // Priority queue
+    struct PQNode* pq = (struct PQNode*)malloc(V * P * sizeof(struct PQNode));
+    int pqSize = 0;
+
+    // Set source distance to 0 at step 0
+    dist[source][0] = 0;
+    pq[pqSize++] = (struct PQNode){source, 0, 0};
+
+    while (pqSize > 0) {
+        // Dequeue minimum element
+        struct PQNode current = pq[0];
+        pq[0] = pq[--pqSize];
+        qsort(pq, pqSize, sizeof(struct PQNode), compare);
+
+        int u = current.node;
+        int step = current.step;
+
+        // Process neighbors
+        struct Edge* edge = graph->adjList[u];
+        while (edge) {
+            int v = edge->to;
+            int nextStep = (step + 1) % P;
+            int weight = edge->weights[step];
+            int newDistance = dist[u][step] + weight;
+
+            if (newDistance < dist[v][nextStep]) {
+                dist[v][nextStep] = newDistance;
+                pred[v][nextStep] = u;
+                pq[pqSize++] = (struct PQNode){v, nextStep, newDistance};
+                qsort(pq, pqSize, sizeof(struct PQNode), compare);
+            }
+
+            edge = edge->next;
+        }
+    }
+
+    free(pq);
+}
+
+// Reconstruct the path from source to target
+int findPath(int source, int target, int** pred, int** dist, int P, int* path, int* pathLength) {
+    int minDistance = INT_MAX;
+    int finalStep = -1;
+
+    // Find the step with the shortest distance to the target
+    for (int i = 0; i < P; i++) {
+        if (dist[target][i] < minDistance) {
+            minDistance = dist[target][i];
+            finalStep = i;
+        }
+    }
+
+    if (minDistance == INT_MAX) {
+        // No path found
+        *pathLength = 0;
+        return INT_MAX;
+    }
+
+    // Reconstruct the path
+    int currentNode = target;
+    int currentStep = finalStep;
+    *pathLength = 0;
+
+    while (currentNode != source || currentStep != 0) {
+        path[(*pathLength)++] = currentNode;
+        int prevNode = pred[currentNode][currentStep];
+        currentStep = (currentStep - 1 + P) % P; // Move to the previous step
+        currentNode = prevNode;
+    }
+
+    path[(*pathLength)++] = source; // Add the source to the path
+    return minDistance;
+}
+
+// Main function
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <graph_file>\n", argv[0]);
@@ -177,6 +171,7 @@ int main(int argc, char* argv[]) {
 
     struct Graph* graph = createGraph(V, P);
 
+    // Read edges
     int from, to;
     while (fscanf(file, "%d %d", &from, &to) == 2) {
         int* weights = (int*)malloc(P * sizeof(int));
@@ -186,6 +181,14 @@ int main(int argc, char* argv[]) {
         addEdge(graph, from, to, weights);
     }
     fclose(file);
+
+    // Distance and predecessor tables
+    int** dist = (int**)malloc(V * sizeof(int*));
+    int** pred = (int**)malloc(V * sizeof(int*));
+    for (int i = 0; i < V; i++) {
+        dist[i] = (int*)malloc(P * sizeof(int));
+        pred[i] = (int*)malloc(P * sizeof(int));
+    }
 
     int* path = (int*)malloc(V * P * sizeof(int));
     int pathLength = 0;
@@ -197,17 +200,14 @@ int main(int argc, char* argv[]) {
         if (sscanf(buffer, "%d %d", &source, &target) != 2) break;
 
         if (source != lastSource) {
-            pathLength = 0;
-            //printf("Recomputing paths from source %d\n", source);
             lastSource = source;
+            dijkstra(graph, source, dist, pred); // Recompute paths from new source
         }
 
-        int distance = dijkstra(graph, source, target, path, &pathLength);
+        int distance = findPath(source, target, pred, dist, P, path, &pathLength);
         if (distance == INT_MAX) {
             printf("No path found\n");
         } else {
-            //printf("Shortest distance: %d\n", distance);
-            //printf("Shortest path: ");
             for (int i = pathLength - 1; i >= 0; i--) {
                 printf("%d ", path[i]);
             }
@@ -215,6 +215,13 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    // Free memory
+    for (int i = 0; i < V; i++) {
+        free(dist[i]);
+        free(pred[i]);
+    }
+    free(dist);
+    free(pred);
     free(path);
     freeGraph(graph);
     return 0;
