@@ -27,6 +27,10 @@ struct Graph {
     int vertices;
     int period;
     struct Edge** adjList; // Original adjacency list
+    // Caching for distances and predecessors for reusability
+    int** distancesCache;
+    int** predecessorsCache;
+    int* isProcessed; // To track if a source node has been processed
 };
 
 // Create a new graph
@@ -35,8 +39,21 @@ struct Graph* createGraph(int vertices, int period) {
     graph->vertices = vertices;
     graph->period = period;
     graph->adjList = (struct Edge**)malloc(vertices * sizeof(struct Edge*));
+    
+    // Allocate cache for storing distances and predecessors
+    graph->distancesCache = (int**)malloc(vertices * sizeof(int*));
+    graph->predecessorsCache = (int**)malloc(vertices * sizeof(int*));
+    graph->isProcessed = (int*)malloc(vertices * sizeof(int));
+
     for (int i = 0; i < vertices; i++) {
         graph->adjList[i] = NULL;
+        graph->distancesCache[i] = (int*)malloc(period * sizeof(int));
+        graph->predecessorsCache[i] = (int*)malloc(period * sizeof(int));
+        graph->isProcessed[i] = 0; // Initialize as not processed
+        for (int j = 0; j < period; j++) {
+            graph->distancesCache[i][j] = INT_MAX;
+            graph->predecessorsCache[i][j] = -1;
+        }
     }
     return graph;
 }
@@ -50,10 +67,57 @@ void addEdge(struct Graph* graph, int from, int to, int* weights) {
     graph->adjList[from] = edge;
 }
 
-// Dijkstra's Algorithm on Expanded Graph
+// Dijkstra's Algorithm with Path Tracking and Caching
 void dijkstra(struct Graph* graph, int source, int target) {
     int V = graph->vertices;
     int P = graph->period;
+
+    // If the distances for the source have already been calculated, reuse them
+    if (graph->isProcessed[source]) {
+        printf("Using cached result for source %d\n", source);
+        // Find the shortest distance to the target across all steps
+        int minDistance = INT_MAX;
+        for (int i = 0; i < P; i++) {
+            if (graph->distancesCache[target][i] < minDistance) {
+                minDistance = graph->distancesCache[target][i];
+            }
+        }
+        // Reconstruct and print the path
+        int finalStep = -1;
+        for (int i = 0; i < P; i++) {
+            if (graph->distancesCache[target][i] == minDistance) {
+                finalStep = i;
+                break;
+            }
+        }
+
+        if (minDistance == INT_MAX) {
+            printf("No path found\n");
+        } else {
+            int* path = (int*)malloc(V * P * sizeof(int));
+            int pathLength = 0;
+            int currentNode = target;
+            int currentStep = finalStep;
+
+            while (currentNode != source || currentStep != 0) {
+                path[pathLength++] = currentNode;
+                int prevNode = graph->predecessorsCache[currentNode][currentStep];
+                currentStep = (currentStep - 1 + P) % P;
+                currentNode = prevNode;
+            }
+            path[pathLength++] = source;
+
+            //printf("Shortest path: ");
+            for (int i = pathLength - 1; i >= 0; i--) {
+                printf("%d ", path[i]);
+            }
+            printf("\n");
+
+            //printf("Shortest distance: %d\n", minDistance);
+            free(path);
+        }
+        return;
+    }
 
     // Priority queue
     struct PQNode* pq = (struct PQNode*)malloc(V * P * sizeof(struct PQNode));
@@ -73,7 +137,7 @@ void dijkstra(struct Graph* graph, int source, int target) {
     for (int i = 0; i < V; i++) {
         predecessors[i] = (int*)malloc(P * sizeof(int));
         for (int j = 0; j < P; j++) {
-            predecessors[i][j] = -1; // -1 means no predecessor
+            predecessors[i][j] = -1;
         }
     }
 
@@ -100,7 +164,7 @@ void dijkstra(struct Graph* graph, int source, int target) {
 
             if (newDistance < distances[v][nextStep]) {
                 distances[v][nextStep] = newDistance;
-                predecessors[v][nextStep] = u; // Track the predecessor node
+                predecessors[v][nextStep] = u;
                 pq[pqSize++] = (struct PQNode){v, nextStep, newDistance};
                 qsort(pq, pqSize, sizeof(struct PQNode), compare);
             }
@@ -108,6 +172,15 @@ void dijkstra(struct Graph* graph, int source, int target) {
             edge = edge->next;
         }
     }
+
+    // Save the results to cache for future reuse
+    for (int i = 0; i < V; i++) {
+        for (int j = 0; j < P; j++) {
+            graph->distancesCache[i][j] = distances[i][j];
+            graph->predecessorsCache[i][j] = predecessors[i][j];
+        }
+    }
+    graph->isProcessed[source] = 1; // Mark the source as processed
 
     // Find the shortest distance to the target across all steps
     int minDistance = INT_MAX;
@@ -123,7 +196,6 @@ void dijkstra(struct Graph* graph, int source, int target) {
     if (minDistance == INT_MAX) {
         printf("No path found\n");
     } else {
-        // Reconstruct and print the shortest path
         int* path = (int*)malloc(V * P * sizeof(int));
         int pathLength = 0;
         int currentNode = target;
@@ -132,12 +204,11 @@ void dijkstra(struct Graph* graph, int source, int target) {
         while (currentNode != source || currentStep != 0) {
             path[pathLength++] = currentNode;
             int prevNode = predecessors[currentNode][currentStep];
-            currentStep = (currentStep - 1 + P) % P; // Move to previous step
+            currentStep = (currentStep - 1 + P) % P;
             currentNode = prevNode;
         }
         path[pathLength++] = source;
 
-        // Print path in correct order
         //printf("Shortest path: ");
         for (int i = pathLength - 1; i >= 0; i--) {
             printf("%d ", path[i]);
@@ -170,6 +241,13 @@ void freeGraph(struct Graph* graph) {
         }
     }
     free(graph->adjList);
+    for (int i = 0; i < graph->vertices; i++) {
+        free(graph->distancesCache[i]);
+        free(graph->predecessorsCache[i]);
+    }
+    free(graph->distancesCache);
+    free(graph->predecessorsCache);
+    free(graph->isProcessed);
     free(graph);
 }
 
@@ -208,10 +286,9 @@ int main(int argc, char* argv[]) {
     while (fgets(buffer, sizeof(buffer), stdin)) {
         int source;
         int target;
-        if(sscanf(buffer, "%d %d", &source, &target) == 2){
+        if (sscanf(buffer, "%d %d", &source, &target) == 2) {
             dijkstra(graph, source, target);
-        }
-        else{
+        } else {
             break;
         }
     }
