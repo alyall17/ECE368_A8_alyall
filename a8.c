@@ -9,6 +9,13 @@ struct PQNode {
     int distance; // Current distance
 };
 
+// Graph structure
+struct Graph {
+    int vertices; // Number of vertices
+    int period;   // Period P
+    struct Edge** adjList; // Adjacency list
+};
+
 // Edge structure
 struct Edge {
     int to;               // Destination node
@@ -16,14 +23,14 @@ struct Edge {
     struct Edge* next;    // Pointer to the next edge
 };
 
-// Graph structure
-struct Graph {
-    int vertices;         // Number of vertices
-    int period;           // Period P
-    struct Edge** adjList; // Adjacency list
+// Priority queue (min heap) structure
+struct MinHeap {
+    struct PQNode* nodes;  // Array of nodes
+    int size;              // Current size of the heap
+    int capacity;          // Maximum capacity of the heap
 };
 
-// Comparator for priority queue
+// Comparator for min heap (used for heapify)
 int compare(const void* a, const void* b) {
     struct PQNode* n1 = (struct PQNode*)a;
     struct PQNode* n2 = (struct PQNode*)b;
@@ -66,7 +73,71 @@ void freeGraph(struct Graph* graph) {
     free(graph);
 }
 
-// Dijkstra's algorithm
+// Create a min-heap
+struct MinHeap* createMinHeap(int capacity) {
+    struct MinHeap* heap = (struct MinHeap*)malloc(sizeof(struct MinHeap));
+    heap->nodes = (struct PQNode*)malloc(capacity * sizeof(struct PQNode));
+    heap->size = 0;
+    heap->capacity = capacity;
+    return heap;
+}
+
+// Swap two nodes in the heap
+void swap(struct PQNode* a, struct PQNode* b) {
+    struct PQNode temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+// Heapify the heap from a given index (restore the heap property)
+void heapify(struct MinHeap* heap, int index) {
+    int smallest = index;
+    int left = 2 * index + 1;
+    int right = 2 * index + 2;
+
+    if (left < heap->size && heap->nodes[left].distance < heap->nodes[smallest].distance) {
+        smallest = left;
+    }
+    if (right < heap->size && heap->nodes[right].distance < heap->nodes[smallest].distance) {
+        smallest = right;
+    }
+    if (smallest != index) {
+        swap(&heap->nodes[index], &heap->nodes[smallest]);
+        heapify(heap, smallest);
+    }
+}
+
+// Extract the minimum node from the heap
+struct PQNode extractMin(struct MinHeap* heap) {
+    if (heap->size == 0) {
+        struct PQNode empty = {-1, -1, INT_MAX};
+        return empty; // Return an invalid node when the heap is empty
+    }
+    struct PQNode root = heap->nodes[0];
+    heap->nodes[0] = heap->nodes[heap->size - 1];
+    heap->size--;
+    heapify(heap, 0);
+    return root;
+}
+
+// Insert a new node into the heap
+void insert(struct MinHeap* heap, struct PQNode node) {
+    if (heap->size == heap->capacity) {
+        // Resize the heap if necessary (this won't happen in a small graph but added for safety)
+        heap->capacity *= 2;
+        heap->nodes = (struct PQNode*)realloc(heap->nodes, heap->capacity * sizeof(struct PQNode));
+    }
+    int index = heap->size++;
+    heap->nodes[index] = node;
+
+    // Bubble up to restore heap property
+    while (index > 0 && heap->nodes[index].distance < heap->nodes[(index - 1) / 2].distance) {
+        swap(&heap->nodes[index], &heap->nodes[(index - 1) / 2]);
+        index = (index - 1) / 2;
+    }
+}
+
+// Dijkstra's algorithm using binary heap
 void dijkstra(struct Graph* graph, int source, int** dist, int** pred) {
     int V = graph->vertices;
     int P = graph->period;
@@ -79,20 +150,15 @@ void dijkstra(struct Graph* graph, int source, int** dist, int** pred) {
         }
     }
 
-    // Priority queue
-    struct PQNode* pq = (struct PQNode*)malloc(V * P * sizeof(struct PQNode));
-    int pqSize = 0;
-
+    // Create a min-heap (priority queue)
+    struct MinHeap* heap = createMinHeap(V * P);
+    
     // Set source distance to 0 at step 0
     dist[source][0] = 0;
-    pq[pqSize++] = (struct PQNode){source, 0, 0};
+    insert(heap, (struct PQNode){source, 0, 0});
 
-    while (pqSize > 0) {
-        // Dequeue minimum element
-        struct PQNode current = pq[0];
-        pq[0] = pq[--pqSize];
-        qsort(pq, pqSize, sizeof(struct PQNode), compare);
-
+    while (heap->size > 0) {
+        struct PQNode current = extractMin(heap);
         int u = current.node;
         int step = current.step;
 
@@ -107,15 +173,15 @@ void dijkstra(struct Graph* graph, int source, int** dist, int** pred) {
             if (newDistance < dist[v][nextStep]) {
                 dist[v][nextStep] = newDistance;
                 pred[v][nextStep] = u;
-                pq[pqSize++] = (struct PQNode){v, nextStep, newDistance};
-                qsort(pq, pqSize, sizeof(struct PQNode), compare);
+                insert(heap, (struct PQNode){v, nextStep, newDistance});
             }
 
             edge = edge->next;
         }
     }
 
-    free(pq);
+    free(heap->nodes);
+    free(heap);
 }
 
 // Reconstruct the path from source to target
