@@ -29,7 +29,7 @@ struct Graph {
     struct Edge** adjList; // Original adjacency list
 };
 
-// Create a new graph
+// Create a new graph using file data
 struct Graph* createGraph(int vertices, int period) {
     struct Graph* graph = (struct Graph*)malloc(sizeof(struct Graph));
     graph->vertices = vertices;
@@ -41,7 +41,7 @@ struct Graph* createGraph(int vertices, int period) {
     return graph;
 }
 
-// Add edge to the graph
+// Add edge to the graph (modified from lecture slides)
 void addEdge(struct Graph* graph, int from, int to, int* weights) {
     struct Edge* edge = (struct Edge*)malloc(sizeof(struct Edge));
     edge->to = to;
@@ -50,7 +50,7 @@ void addEdge(struct Graph* graph, int from, int to, int* weights) {
     graph->adjList[from] = edge;
 }
 
-// Dijkstra's Algorithm on Expanded Graph
+// Dijkstra's Algorithm (modified from lecture slides) on expanded graph
 void dijkstra(struct Graph* graph, int source, int target) {
     int V = graph->vertices;
     int P = graph->period;
@@ -138,13 +138,10 @@ void dijkstra(struct Graph* graph, int source, int target) {
         path[pathLength++] = source;
 
         // Print path in correct order
-        //printf("Shortest path: ");
         for (int i = pathLength - 1; i >= 0; i--) {
             printf("%d ", path[i]);
         }
         printf("\n");
-
-        //printf("Shortest distance: %d\n", minDistance);
         free(path);
     }
 
@@ -158,7 +155,7 @@ void dijkstra(struct Graph* graph, int source, int target) {
     free(pq);
 }
 
-// Free the graph
+// Frees all graph memory
 void freeGraph(struct Graph* graph) {
     for (int i = 0; i < graph->vertices; i++) {
         struct Edge* edge = graph->adjList[i];
