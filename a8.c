@@ -5,48 +5,50 @@
 // Graph Node in Adjacency List
 struct graphNode{
     int label; // Destination node
-    int* weights; // Array of periodic weights
+    int* weight; // Dynamically allocated weights
     struct graphNode* next; // Pointer to the next node
 };
 
-// Overall graph structure
-struct Graph{
-    int vertexCount; // Number of vertices
-    int periodLength; // Length of weight period
-    struct graphNode** adj; // Adjacency list
-    int* heapIndex; // Heap index array
-};
-
-// Node in the heap
-struct heapNode{
+// Node in Dijkstra heap
+struct treeNode{
     int label; // Node label
     int distance; // Distance from the source
     int predecessor; // Predecessor node in shortest path
-    int step; // Step at which node is processed
+    int step; // Number of steps taken to reach this node
+};
+
+struct Graph{
+    struct graphNode ** graph; // Adjacency List
+    int* heapIndex;
+    int vertices; // Number of vertices
+    int period; // Period of weights
 };
 
 // Create a graph from the data file
-struct Graph* createGraph(int vertexCount, int periodLength){
+struct Graph* createGraph(int vertices, int period){
     struct Graph* graph = (struct Graph*)malloc(sizeof(struct Graph));
-    graph->vertexCount = vertexCount;
-    graph->periodLength = periodLength;
-    graph->adj = (struct graphNode**)calloc(vertexCount, sizeof(struct graphNode*));
-    graph->heapIndex = (int*)malloc(vertexCount * sizeof(int));
+    graph->vertices = vertices;
+    graph->period = period;
+    graph->graph = (struct graphNode**)malloc(vertices * sizeof(struct graphNode*));
+    graph->heapIndex = (int*)malloc(vertices * sizeof(int));
+    for(int i = 0; i < vertices; i++){
+        graph->graph[i] = NULL;
+    }
     return graph;
 }
 
 // Free memory from the graph
 void freeGraph(struct Graph* graph){
-    for(int i = 0; i < graph->vertexCount; i++){
-        struct graphNode* current = graph->adj[i];
+    for(int i = 0; i < graph->vertices; i++){
+        struct graphNode* current = graph->graph[i];
         while(current){
             struct graphNode* temp = current;
             current = current->next;
-            free(temp->weights);
+            free(temp->weight);
             free(temp);
         }
     }
-    free(graph->adj);
+    free(graph->graph);
     free(graph->heapIndex);
     free(graph);
 }
@@ -55,173 +57,113 @@ void freeGraph(struct Graph* graph){
 void addEdge(struct Graph* graph, int from, int to, int* weights){
     struct graphNode* new = (struct graphNode*)malloc(sizeof(struct graphNode));
     new->label = to;
-    new->weights = weights;
-    new->next = graph->adj[from];
-    graph->adj[from] = new;
+    new->weight = (int*)malloc(graph->period * sizeof(int));
+    for(int i = 0; i < graph->period; i++){
+        new->weight[i] = weights[i];
+    }
+    new->next = graph->graph[from];
+    graph->graph[from] = new;
 }
 
-// Function to swap two heap nodes (for Dijkstra's algorithm)
-void swap(struct heapNode* arr, int i, int j, int* heapIndex){
-    struct heapNode temp = arr[i];
-    arr[i] = arr[j];
-    arr[j] = temp;
+// Dequeue minimum element from the heap (modified from lecture slides)
+void dequeue(struct treeNode* arr, int n, int* heapIndex){
+    struct treeNode temp = arr[n];
+    arr[n] = arr[0];
+    arr[0] = temp;
 
-    // Update heap index array to reflect new positions
-    heapIndex[arr[i].label] = i;
-    heapIndex[arr[j].label] = j;
-}
+    heapIndex[arr[0].label] = 0;
+    heapIndex[arr[n].label] = n;
 
-// Restore heap by shifting down (downward heapify)
-void downwardHeapify(struct heapNode* arr, int n, int i, int* heapIndex){
-    int smallest = i; // Assume current node is smallest
-    int left = 2 * i + 1; // Left child index
-    int right = 2 * i + 2; // Right child index
-
-    // Check if left child exists and is smaller than current node
-    if(left < n && (arr[left].distance < arr[smallest].distance)){
-        smallest = left;
-    }
-
-    // Check if right child exists and is smaller than current node
-    if(right < n && arr[right].distance < arr[smallest].distance){
-        smallest = right;
-    }
-
-    // If the smallest node is not current node, swap and continue
-    if(smallest != i){
-        swap(arr, i, smallest, heapIndex);
-        downwardHeapify(arr, n, smallest, heapIndex);
-    }
-}
-
-// Restore heap by shifting up (upward heapify)
-void upwardHeapify(struct heapNode* arr, int i, int* heapIndex){
-    // Continue shifting up until property restored
-    while(i > 0 && arr[i].distance < arr[(i - 1) / 2].distance){
-        swap(arr, i, ((i - 1) / 2), heapIndex); // Swap with parent
-        i = (i - 1) / 2; // Move up to parent's index
-    }
-}
-
-// Dequeue minimum element from the heap
-void dequeue(struct heapNode* arr, int n, int* heapIndex){
-    if(n == 0) return;
-
-    // Swap root (minimum) with last element in the heap
-    swap(arr, 0, n, heapIndex);
     n--;
+    int i = 0;
+    int j;
+    while((j = 2 * i + 1) <= n){
+        if(j < n && arr[j].distance > arr[j + 1].distance) j++;
+        if(arr[j].distance >= temp.distance) break;
 
-    // Restore heap property by shifting down
-    downwardHeapify(arr, n, 0, heapIndex);
-}
-
-// Relax an edge during Dijkstra's algorithm
-void relaxEdge(struct Graph* graph, struct heapNode* arr, int u, struct graphNode* v, int step, int n){
-    // Compute effective weight for edge at current step
-    int effectiveWeight = v->weights[step % graph->periodLength];
-
-    // Check if the distance through edge improves the shortest path to v->label
-    if((graph->heapIndex[v->label] < n) && (arr[graph->heapIndex[v->label]].distance > (arr[graph->heapIndex[u]].distance + effectiveWeight))){
-        
-        // Update the distance and predecessor for the target vertex
-        arr[graph->heapIndex[v->label]].distance = arr[graph->heapIndex[u]].distance + effectiveWeight;
-        arr[graph->heapIndex[v->label]].predecessor = u;
-        arr[graph->heapIndex[v->label]].step = step + 1;
-
-        // Restore the heap property for the updated vertex
-        upwardHeapify(arr, graph->heapIndex[v->label], graph->heapIndex);
+        arr[i] = arr[j];
+        heapIndex[arr[i].label] = i;
+        i = j;
     }
 
-   //int vIndex = graph->heapIndex[v->label];
-    /*if (vIndex < n && arr[vIndex].distance > arr[graph->heapIndex[u]].distance + effectiveWeight) {
-        arr[vIndex].distance = arr[graph->heapIndex[u]].distance + effectiveWeight;
-        arr[vIndex].predecessor = u;
-        arr[vIndex].step = step + 1;
+    arr[i] = temp;
+    heapIndex[arr[i].label] = i;
+}
 
-        upwardHeapify(arr, vIndex, graph->heapIndex);
-    }*/
+// Update location in the heap
+void update(struct treeNode* arr, int i, int* heapIndex){
+    struct treeNode temp = arr[i];
+    int j = i;
+    while(j > 0 && arr[(j - 1) / 2].distance > temp.distance){
+        arr[j]= arr[(j - 1) / 2];
+        heapIndex[arr[j].label] = j;
+        j = (j - 1) / 2;
+    }
+    arr[j] = temp;
+    heapIndex[arr[j].label] = j;
 }
 
 // Dijkstra's algorithm implementation (from lecture slides), modified for periodic weights
 void dijkstra(struct Graph* graph, int source, int target){
-    // Initialize the heap (priority queue) with graph vertices
-    struct heapNode* arr = (struct heapNode*)malloc(graph->vertexCount * sizeof(struct heapNode));
-    int n = graph->vertexCount;
+    int V = graph->vertices;
+    int period = graph->period;
 
-    // Initialize all heap nodes with infinite distance and no predecessors
-    for(int i = 0; i < graph->vertexCount; i++){
+    struct treeNode* arr = (struct treeNode*)malloc(V * sizeof(struct treeNode));
+    int n = V;
+
+    // Initialize nodes
+    for(int i = 0; i < V; i++){
         arr[i].label = i;
         arr[i].distance = INT_MAX;
         arr[i].predecessor = -1;
-        arr[i].step = 0;
+        arr[i].step = 0; // Start with 0 steps
         graph->heapIndex[i] = i;
     }
 
-    // Set source vertex's distance to 0
-    arr[0].distance = 0;
-    arr[0].label = source;
-    graph->heapIndex[source] = 0;
+    arr[source].distance = 0;
+    arr[source].step = 0; // Starting node, no steps taken yet
 
-    // Main Dijkstra's loop
-    while(n != 0){
-        dequeue(arr, n, graph->heapIndex); // Extract minimum distance node
+    while(n > 0){
+        dequeue(arr, n - 1, graph->heapIndex);
         n--;
-        int u = arr[n].label; // Current node
-        int step = arr[n].step; // Current step for calculating periodic weights
-        struct graphNode* v = graph->adj[u]; // Traverse adjacency list of u
+        int u = arr[n].label;
 
-        // Relax all edges from u to neighbors
-        while(v){
-            relaxEdge(graph, arr, u, v, step, n);
+        if(u == target) break; // Early termination if target is reached
+
+        struct graphNode* v = graph->graph[u];
+        while(v != NULL){
+            int nextStep = arr[n].step + 1;
+            int nextWeight = (nextStep % period);
+            if(graph->heapIndex[v->label] < n && arr[graph->heapIndex[v->label]].distance > arr[n].distance + v->weight[nextWeight]){
+                arr[graph->heapIndex[v->label]].distance = arr[n].distance + v->weight[nextWeight];
+                arr[graph->heapIndex[v->label]].predecessor = u;
+                arr[graph->heapIndex[v->label]].step = nextStep; // Update step in graph traversal
+                update(arr, graph->heapIndex[v->label], graph->heapIndex);
+            }
             v = v->next;
         }
     }
 
-    // Print shortest path in the specified format
+    // Print the shortest path
+    int* path = (int *)malloc(V * sizeof(int));
+    int count = 0;
+    int current = target;
+    while(current != -1){
+        path[count++] = current;
+        current = arr[graph->heapIndex[current]].predecessor;
+    }
+
     if(arr[graph->heapIndex[target]].distance == INT_MAX){
-        printf("No path exists\n");
+        printf("No path found\n");
     }
     else{
-        int* path = (int*)malloc(graph->vertexCount * sizeof(int));
-        int count = 0;
-        int current = target;
-        while(current != -1){
-            path[count++] = current;
-            current = arr[graph->heapIndex[current]].predecessor;
-        }
         for(int i = count; i >= 0; i--){
-            printf("%d%s", path[i], (i > 0 ? " " : "\n"));
+            printf("%d ", path[i]);
         }
-        free(path);
+        printf("\n");
     }
+    free(path);
     free(arr);
-}
-
-// Parse the input file to create a graph
-struct Graph* parseInput(const char* filename){
-    FILE* file = fopen(filename, "r");
-    if(!file){
-        perror("Error opening file");
-        exit(1);
-    }
-
-    int vertexCount;
-    int periodLength;
-    fscanf(file, "%d %d", &vertexCount, &periodLength);
-    struct Graph* graph = createGraph(vertexCount, periodLength);
-
-    int from;
-    int to;
-    while(fscanf(file, "%d %d", &from, &to) != EOF){
-        int* weights = (int*)malloc(periodLength * sizeof(int));
-        for(int i = 0; i < periodLength; i++){
-            fscanf(file, "%d", &weights[i]);
-        }
-        addEdge(graph, from, to, weights);
-    }
-
-    fclose(file);
-    return graph;
 }
 
 int main(int argc, char *argv[]){
@@ -230,12 +172,42 @@ int main(int argc, char *argv[]){
         return 1;
     }
 
-    struct Graph* graph = parseInput(argv[1]);
+    FILE* file = fopen(argv[1], "r");
+    if(!file){
+        perror("Error opening file");
+        return 1;
+    }
 
+    int V;
+    int N;
+    fscanf(file, "%d %d", &V, &N);
+
+    // Initialize overall graph
+    struct Graph* graph = createGraph(V, N);
+
+    // Input edges
+    int from;
+    int to;
+    int* weights = (int*)malloc(N * sizeof(int));
+    while(fscanf(file, "%d %d", &from, &to) == 2){
+        for(int i = 0; i < N; i++){
+            fscanf(file, "%d", &weights[i]);
+        }
+        addEdge(graph, from, to, weights);
+    }
+    free(weights);
+    fclose(file);
+
+    char input[256];
     int source;
     int target;
-    while(scanf("%d %d", &source, &target) == 2){
-        dijkstra(graph, source, target);
+    while(fgets(input, sizeof(input), stdin) != NULL){
+        if(sscanf(input, "%d %d", &source, &target) == 2){
+            dijkstra(graph, source, target);
+        }
+        else{
+            break;
+        }
     }
 
     freeGraph(graph);
